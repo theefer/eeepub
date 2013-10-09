@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 
-require 'lib/eeepub/version'
+require './lib/eeepub/version'
 
 Gem::Specification.new do |s|
   s.name        = "eeepub"
