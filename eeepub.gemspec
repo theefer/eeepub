@@ -1,21 +1,27 @@
-# -*- coding: utf-8 -*-
-lib = File.expand_path('../lib/', __FILE__)
-$:.unshift lib unless $:.include?(lib)
+# -*- encoding: utf-8 -*-
 
-require 'eeepub/version'
+require 'lib/eeepub/version'
 
-spec = Gem::Specification.new do |gem|
-  gem.name        = "eeepub"
-  gem.version     = EeePub::VERSION
-  gem.platform    = Gem::Platform::RUBY
-  gem.summary     = %Q{ePub generator}
-  gem.description = %Q{EeePub is a Ruby ePub generator.}
-  gem.email       = ["jugyo.org@gmail.com", "seb@cine7.net"]
-  gem.homepage    = "http://github.com/jugyo/eeepub"
-  gem.authors     = ["jugyo", "Sébastien Cevey"]
-  gem.files       = Dir.glob("lib/**/*") + %w(LICENSE README.md)
-  gem.add_dependency "builder"
-  gem.add_development_dependency "rspec"
-  gem.add_development_dependency "rr"
+Gem::Specification.new do |s|
+  s.name        = "eeepub"
+  s.version     = EeePub::VERSION
+  s.platform    = Gem::Platform::RUBY
+  s.authors     = ["jugyo"]
+  s.email       = ["jugyo.org@gmail.com"]
+  s.homepage    = "http://github.com/jugyo/eeepub"
+  s.summary     = %q{ePub generator}
+  s.description = %q{EeePub is a Ruby ePub generator.}
+
+  s.files         = `git ls-files`.split("\n")
+  s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
+  s.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
+  s.require_paths = ["lib"]
+
+  s.add_dependency "builder"
+#  s.add_dependency "zipruby"
+  s.add_dependency "rubyzip"
+  s.add_development_dependency "rspec"
+  s.add_development_dependency "nokogiri"
+  s.add_development_dependency "rr"
+  s.add_development_dependency "simplecov"  
 end
-

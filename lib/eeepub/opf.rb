@@ -142,6 +142,7 @@ module EeePub
 
     def create_unique_item_id(filename, id_cache)
       basename = File.basename(filename)
+      basename = "_#{basename}" if basename.match(/^[-.0-9]/)
       unless id_cache[basename]
         id_cache[basename] = 0
         name = basename

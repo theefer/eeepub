@@ -1,3 +1,6 @@
+# require 'zipruby'
+require 'zip/zip'
+
 module EeePub
   # Class to create OCF
   class OCF
@@ -89,6 +92,85 @@ module EeePub
     def save(output_path)
       output_path = File.expand_path(output_path)
 
+      create_epub do
+#         Zip::ZipFile.open(output_path, Zip::ZipFile::CREATE) do |zip|
+#           # first entry MUST be uncompressed mimetype file with no file attributes
+#           # mimetype_entry = Zip::ZipEntry.new(zip, 'mimetype')
+#           # mimetype_entry = Zip::ZipEntry.new('mimetype', 'mimetype')
+#           # mimetype_entry.compression_method = Zip::ZipEntry::STORED
+#           # # mimetype_entry.externalFileAttributes = false
+#           # mimetype_entry.extra = false
+#           # zip.add(mimetype_entry, 'mimetype')
+#           zip.add('mimetype', 'mimetype')
+#           mimetype_entry = zip.get_entry('mimetype')
+#           mimetype_entry.compression_method = Zip::ZipEntry::STORED
+
+#           # add all other files
+#           files = Dir.glob('**/*') - ['mimetype']
+#           files.each do |path|
+#             next if File.directory?(path)
+#             zip.add(path, path)
+#           end
+#         end
+
+        Zip::ZipOutputStream.open(output_path) do |zip|
+          # first entry MUST be uncompressed mimetype file with no file attributes
+          mimetype_entry = Zip::ZipEntry.new('', 'mimetype')
+          mimetype_entry.gather_fileinfo_from_srcpath('mimetype')
+          zip.put_next_entry(mimetype_entry, nil, nil, Zip::ZipEntry::STORED)
+          mimetype_entry.get_input_stream { |is| IOExtras.copy_stream(zip, is) }
+
+          # add all other files
+          files = Dir.glob('**/*') - ['mimetype']
+          files.each do |path|
+            next if File.directory?(path)
+            entry = Zip::ZipEntry.new('', path)
+            entry.gather_fileinfo_from_srcpath(path)
+            zip.put_next_entry(entry)
+            entry.get_input_stream { |is| IOExtras.copy_stream(zip, is) }
+          end
+        end
+
+        # FIXME: HACK! find library that does this properly
+        # `zip -X0 #{output_path} mimetype`
+        # Zip::Archive.open(output_path, Zip::CREATE) do |zip|
+        #   # ensure mimetype is the first file in the zip
+        #   # files = (['mimetype'] + Dir.glob('**/*')).uniq
+        #   # FIXME: must add mimetype UNCOMPRESSED!
+        #   # zip.add_file('mimetype', 'mimetype')
+        #   files = Dir.glob('**/*').reject {|p| p == 'mimetype'}
+        #   files.each do |path|
+        #     if File.directory?(path)
+        #       zip.add_dir(path)
+        #     else
+        #       zip.add_file(path, path)
+        #     end
+        #   end
+        # end
+      end
+    end
+    
+    # Stream OCF
+    #
+    # @return [String] streaming output of the zip/epub file.
+    def render
+      create_epub do
+        buffer = Zip::Archive.open_buffer(Zip::CREATE) do |zip|
+          Dir.glob('**/*').each do |path|
+            if File.directory?(path)
+              zip.add_buffer(path, path)
+            else
+              zip.add_buffer(path, File.read(path))
+            end
+          end
+        end
+
+        return buffer
+      end
+    end
+
+    private
+    def create_epub
       FileUtils.chdir(dir) do
         File.open('mimetype', 'w') do |f|
           f << 'application/epub+zip'
@@ -98,10 +180,9 @@ module EeePub
         FileUtils.mkdir_p(meta_inf)
 
         container.save(File.join(meta_inf, 'container.xml'))
-
-        %x(zip -X9 \"#{output_path}\" mimetype)
-        %x(zip -Xr9D \"#{output_path}\" * -xi mimetype)
+        yield
       end
+
     end
   end
 end

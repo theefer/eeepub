@@ -55,7 +55,7 @@ module EeePub
 
     def identifier(id, options)
       @identifiers ||= []
-      @identifiers << {:value => id, :scheme => options[:scheme]}
+      @identifiers << {:value => id, :scheme => options[:scheme], :id => options[:id]}
     end
 
     def creator(name, options)
@@ -77,53 +77,67 @@ module EeePub
     #
     # @param [String] filename the ePub file name to save
     def save(filename)
-      Dir.mktmpdir do |dir|
-        @files.each do |file|
+      create_epub.save(filename)
+    end
+
+    # instead of saving to file, output the file contents. 
+    # important for serving on-the-fly doc creation from
+    # web interface where we don't want to allow file system
+    # writes (Heroku, et al.)
+    def render
+      create_epub.render
+    end
+
+    private
+
+    def create_epub
+      dir = Dir.mktmpdir
+      @files.each do |file|
+        case file
+        when String
+          FileUtils.cp(file, dir)
+        when Hash
+          file_path, dir_path = *file.first
+          dest_dir = File.join(dir, dir_path)
+          FileUtils.mkdir_p(dest_dir)
+          FileUtils.cp(file_path, dest_dir)
+        end
+      end
+
+      NCX.new(
+        :uid => @uid,
+        :title => @titles[0],
+        :nav => @nav
+      ).save(File.join(dir, @ncx_file))
+
+# FIXME: unique_identifier? or use uid?
+      OPF.new(
+        :title => @titles,
+        :identifier => @identifiers,
+        :creator => @creators,
+        :publisher => @publishers,
+        :date => @dates,
+        :language => @languages,
+        :subject => @subjects,
+        :description => @descriptions,
+        :rights => @rightss,
+        :relation => @relations,
+        :manifest => @files.map{|file|
           case file
           when String
-            FileUtils.cp(file, dir)
+            File.basename(file)
           when Hash
             file_path, dir_path = *file.first
-            dest_dir = File.join(dir, dir_path)
-            FileUtils.mkdir_p(dest_dir)
-            FileUtils.cp(file_path, dest_dir)
+            File.join(dir_path, File.basename(file_path))
           end
-        end
+        },
+        :ncx => @ncx_file
+      ).save(File.join(dir, @opf_file))
 
-        NCX.new(
-          :uid => @uid,
-          :title => @titles[0],
-          :nav => @nav
-        ).save(File.join(dir, @ncx_file))
-
-        OPF.new(
-          :title => @titles,
-          :identifier => @identifiers,
-          :creator => @creators,
-          :publisher => @publishers,
-          :date => @dates,
-          :language => @languages,
-          :subject => @subjects,
-          :description => @descriptions,
-          :rights => @rightss,
-          :relation => @relations,
-          :manifest => @files.map{|file|
-            case file
-            when String
-              File.basename(file)
-            when Hash
-              file_path, dir_path = *file.first
-              File.join(dir_path, File.basename(file_path))
-            end
-          },
-          :ncx => @ncx_file
-        ).save(File.join(dir, @opf_file))
-
-        OCF.new(
-          :dir => dir,
-          :container => @opf_file
-        ).save(filename)
-      end
+      OCF.new(
+        :dir => dir,
+        :container => @opf_file
+      )
     end
   end
 end
